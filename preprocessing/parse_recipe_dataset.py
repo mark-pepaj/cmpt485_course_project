@@ -9,7 +9,6 @@ prompts_file = "prompts.txt"
 
 UNIT_MAP = {
     "c.": "cup",
-    "cups": "cup",
     "tbsp.": "tablespoon",
     "tsp.": "teaspoon",
     "oz.": "ounce",
@@ -97,7 +96,6 @@ prompt_groups = load_prompts(prompts_file)
 prompt_idx = 0
 
 total_recipes = 0
-
 
 
 

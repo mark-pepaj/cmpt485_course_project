@@ -1,6 +1,6 @@
 #! /usr/bin/bash
 
-if ! [ -e "training.txt" ] && [ -e "validation.txt" ] && [ -e "testing.txt" ]
+if ! [ -e "training.txt" ] && ! [ -e "validation.txt" ] && ! [ -e "testing.txt" ]
 then
     echo "Downloading .zip file..."
     # download the .zip file
@@ -20,7 +20,7 @@ then
 
     echo "Shuffling the data..."
     # shuffle the csv
-    shuf recipes.csv > shuffled_recipes.csv
+    head -1 recipes.csv > shuffled_recipes.csv && tail -n +2 recipes.csv | shuf >> shuffled_recipes.csv
     echo "Done"
 
     # remove these files since we're done processing them
@@ -28,9 +28,13 @@ then
     rm "recipes_data.csv"
     rm "recipes.csv"
 
-    # create the format for each sample
-    #python format_samples.py
+    # parse data, normalizing leading or trailing whitespaces
+    # the ingredients and directions also are in a string list format initially, so we parse the ingredients and directions and convert them to a string
+    python parse_data.py
+        
+    NUM_ROWS=$(wc -l normalized_dataset.csv)
 
-    # create the training, validation, and testing set files with the respective splits 0.2, 0.4, 0.4
-    #python build_data_splits.py
+    # create the format for each sample
+    # and create the training, validation, and testing set files with the respective splits 0.2, 0.4, 0.4
+    python build_data_splits.py "$NUM_ROWS"
 fi
