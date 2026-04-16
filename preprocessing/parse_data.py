@@ -3,17 +3,21 @@ import csv
 import ast
 import re
 
-input_file = "shuffled_recipes.csv"
-output_file = "normalized_recipes.csv"
+input_file = "shuffled.csv"
+output_file = "normalized.csv"
 
-chunks = pd.read_csv(input_file, dtype=str, chunksize=100000)
-for chunk in chunks:
-    chunk = chunk.dropna()
+"""
+chunks = pd.read_csv(input_file,
+                     dtype=str,
+                     chunksize=100000,
+                     engine="python",
+                     on_bad_lines="skip"
+                     )
+"""
 
-
-#with open(input_file, 'r') as f:
-#    num_rows = sum(1 for line in f)
-
+#for chunk in chunks:
+#    chunk = chunk.dropna(subset=["title", "ingredients", "directions"])
+    
 
 def normalize_units(text):
 
@@ -56,7 +60,15 @@ def parse_list_column(s):
 
 
 
-
+"""
+chunks = pd.read_csv(
+    input_file,
+    dtype=str,
+    chunksize=50000,
+    engine="python",
+    on_bad_lines="skip"
+    )
+"""
 with open(input_file, 'r', encoding="utf-8", newline="") as fin, open(output_file, 'w', encoding="utf-8", newline="") as fout:
     reader = csv.DictReader(fin)
     fieldnames = reader.fieldnames
