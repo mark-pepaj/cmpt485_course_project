@@ -1,1 +1,0 @@
-To train a transformer on this large dataset, we should load batches of the data and train the network on sub-batches of this data.
