@@ -40,10 +40,12 @@ def format_recipes(row):
             )
 
 input_file = "normalized.csv"
-out_train = "training.txt"
-out_val = "validation.txt"
-out_test = "testing.txt"
+output_file = "input.txt"
 
+# define the number of rows for a subset of the recipes
+num_rows = 100000
+
+# uncomment to get the total number of recipes
 """
 num_rows = 0
 with open(input_file, 'r', encoding="utf-8", buffering=1024*1024) as f:
@@ -51,19 +53,10 @@ with open(input_file, 'r', encoding="utf-8", buffering=1024*1024) as f:
         num_rows += 1
 """
 
-num_rows = 30
-n1 = int(0.2 * num_rows)
-n2 = int(0.6 * num_rows)
-i = 0
-
-# Xtr = data[:n1]
-# Xval = data[n1:n2]
-# Xte = data[n2:] 
-
 
 chunks = pd.read_csv(
         input_file,
-        nrows = 30,
+        nrows = num_rows,
         usecols=["title", "ingredients", "directions"],
         dtype=str,
         chunksize=10)
@@ -79,14 +72,6 @@ with open(out_train, "a", encoding="utf-8") as f_train, open(out_val, "a", encod
                     }
             text = format_recipes(row_dict)
             
-            if i < n1:
-                with open(out_train, "a", encoding="utf-8") as f:
-                    f.write("".join(text))
-            elif i >= n1 and i < n2:
-                with open(out_val, "a", encoding="utf-8") as f:
-                    f.write("".join(text))
-            else:
-                with open(out_test, "a", encoding="utf-8") as f:
-                    f.write("".join(text))
-            i += 1
+            with open(output_file, "a", encoding="utf-8") as f:
+                f.write("".join(text))
 
