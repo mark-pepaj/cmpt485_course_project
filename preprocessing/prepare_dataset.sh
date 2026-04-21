@@ -38,7 +38,7 @@ then
         
     # create the format for each sample
     # and create the training, validation, and testing set files with the respective splits 0.2, 0.4, 0.4
-    python build_data_splits.py 
+    python build_data.py 
 
     rm "normalized.csv"
 
