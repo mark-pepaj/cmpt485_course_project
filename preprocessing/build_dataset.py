@@ -27,9 +27,6 @@ def format_recipes(row):
     ingredients = row["ingredients"]
     directions = row["directions"]
 
-    #ingredients_block = "\n".join(ingredients)
-    #directions_block = " ".join(directions)
-
     return (
             "<SOS>\n"
             "<PROMPT>" + prompt + "</PROMPT>\n\n"
@@ -43,7 +40,7 @@ input_file = "normalized.csv"
 output_file = "input.txt"
 
 # define the number of rows for a subset of the recipes
-num_rows = 100000
+num_rows = 1000
 
 # uncomment to get the total number of recipes
 """
@@ -62,7 +59,7 @@ chunks = pd.read_csv(
         chunksize=10)
 
 
-with open(out_train, "a", encoding="utf-8") as f_train, open(out_val, "a", encoding="utf-8") as f_val, open(out_test, "a", encoding="utf-8") as f_test:
+with open(output_file, "a", encoding="utf-8") as f:
     for chunk in chunks:
         for row in chunk.itertuples(index=False):
             row_dict = {
@@ -70,8 +67,9 @@ with open(out_train, "a", encoding="utf-8") as f_train, open(out_val, "a", encod
                     "ingredients": row.ingredients,
                     "directions": row.directions
                     }
+            if not all(isinstance(v, str) for v in row_dict.values()):
+                continue           
             text = format_recipes(row_dict)
-            
-            with open(output_file, "a", encoding="utf-8") as f:
-                f.write("".join(text))
+            f.write("".join(text))
 
+ 

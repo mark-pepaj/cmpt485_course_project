@@ -12,7 +12,8 @@ train_data = data[:int(n*0.7)]
 val_data = data[int(n*0.7):]
 
 # encode with tiktoken gpt2 bpe
-base = tiktoken.get_encoding("gpt2")
+enc = tiktoken.get_encoding("gpt2")
+"""
 special = {
     "<SOS>": 50257,
     "<PROMPT>": 50258,
@@ -25,16 +26,19 @@ special = {
     "</DIRECTIONS>": 50265,
     "<EOS>": 50266,
 }
+"""
 
+"""
 enc = tiktoken.Encoding(
     name="custom-gpt2",
     pat_str=base._pat_str,
     mergeable_ranks=base._mergeable_ranks,
     special_tokens=special,
 )
+"""
 
-train_ids = enc.encode_ordinary(train_data, allowed_special='all')
-val_ids = enc.encode_ordinary(val_data)
+train_ids = enc.encode(train_data, allowed_special='all')
+val_ids = enc.encode(val_data, allowed_special='all')
 print(f"train has {len(train_ids):,} tokens")
 print(f"val has {len(val_ids):,} tokens")
 
@@ -44,5 +48,4 @@ val_ids = np.array(val_ids, dtype=np.uint16)
 train_ids.tofile(os.path.join(os.path.dirname(__file__), 'train.bin'))
 val_ids.tofile(os.path.join(os.path.dirname(__file__), 'val.bin'))
 
-# train.bin has 301,966 tokens
-# val.bin has 36,059 tokens
+
