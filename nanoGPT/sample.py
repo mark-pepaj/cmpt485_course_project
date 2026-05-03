@@ -6,21 +6,21 @@ from contextlib import nullcontext
 import torch
 import tiktoken
 from model import GPTConfig, GPT
+import re
 
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
-out_dir = 'out' # ignored if init_from is not 'resume'
-#start = "<SOS>\n<PROMPT>Show me how to prepare bread</PROMPT>\n\n"
-start = "<SOS>\n<PROMPT>Show me how to make fudge</PROMPT>\n\n" 
+out_dir = 'out-recipes' # ignored if init_from is not 'resume'
+#start = "\n" # or "<|endoftext|>" or etc. Can also specify a file, use as: "FILE:prompt.txt"
 num_samples = 1 # number of samples to draw
-max_new_tokens = 250 # number of tokens generated in each sample
-temperature = 0.2 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
-top_k = 200 # retain only the top_k most likely tokens, clamp others to have 0 probability
+max_new_tokens = 1000 # number of tokens generated in each sample
+temperature = 0.4 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
+top_k = 50 # retain only the top_k most likely tokens, clamp others to have 0 probability
 #seed = 1337
-device = 'cpu'
-#device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
+#device = 'cpu'
+device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
-compile = True # use PyTorch 2.0 to compile the model to be faster
+compile = False # use PyTorch 2.0 to compile the model to be faster
 exec(open('configurator.py').read()) # overrides from command line or config file
 # -----------------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ if init_from == 'resume' and 'config' in checkpoint and 'dataset' in checkpoint[
     meta_path = os.path.join('data', checkpoint['config']['dataset'], 'meta.pkl')
     load_meta = os.path.exists(meta_path)
 if load_meta:
-    print(f"Loading meta from {meta_path}...")
+    #print(f"Loading meta from {meta_path}...")
     with open(meta_path, 'rb') as f:
         meta = pickle.load(f)
     # TODO want to make this more general to arbitrary encoder/decoder schemes
@@ -69,12 +69,10 @@ if load_meta:
     decode = lambda l: ''.join([itos[i] for i in l])
 else:
     # ok let's assume gpt-2 encodings by default
-    print("No meta.pkl found, assuming GPT-2 encodings...")
+    #print("No meta.pkl found, assuming GPT-2 encodings...")
 
-    #base = tiktoken.get_encoding("gpt2")
-    enc = tiktoken.get_encoding("gpt2")
+    base = tiktoken.get_encoding("gpt2")
 
-    """
     special = {
     "<SOS>": 50257,
     "<PROMPT>": 50258,
@@ -88,30 +86,53 @@ else:
     "<EOS>": 50266,
     }
 
-
     enc = tiktoken.Encoding(
         name="custom-gpt2",
         pat_str=base._pat_str,
         mergeable_ranks=base._mergeable_ranks,
         special_tokens=special,
     )
-    """
     encode = lambda s: enc.encode(s, allowed_special='all')
     decode = lambda l: enc.decode(l)
 
 # encode the beginning of the prompt
-if start.startswith('FILE:'):
-    with open(start[5:], 'r', encoding='utf-8') as f:
-        start = f.read()
-start_ids = encode(start)
-x = (torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...])
+#if start.startswith('FILE:'):
+#    with open(start[5:], 'r', encoding='utf-8') as f:
+#        start = f.read()
 
+
+def remove_special_tokens(text, tags):
+    for tag in tags:
+        if tag == "SOS":
+            text = text.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
+        if tag == "PROMPT":
+            text = text.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
+        if tag == "TITLE":
+            text = text.replace(f"<{tag}>", "Title: ").replace(f"</{tag}>", "")
+        if tag == "INGREDIENTS":
+            text = text.replace(f"<{tag}>", "Ingredients:").replace(f"</{tag}>", "")
+        if tag == "DIRECTIONS":
+            text = text.replace(f"<{tag}>", "Directions:").replace(f"</{tag}>", "")
+        if tag == "EOS":
+            text = text.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
+    return text
+
+
+start = input("Hello, how may I help you today?\nEnter: ")
 # run generation
 with torch.no_grad():
     with ctx:
-        for k in range(num_samples):
-            y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
+        while True:
+            start = "<SOS>\n<PROMPT>" + start + "</PROMPT>\n\n"
+            start_ids = encode(start)
+            x = (torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...])
+
+            y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k, eos_token_id=50266)
             text = decode(y[0].tolist())
-            if "<EOS>" in text:
-                break
+            text = remove_special_tokens(text, ["SOS", "PROMPT", "TITLE", "INGREDIENTS", "DIRECTIONS", "EOS"])
             print(text)
+            print('---------------')
+
+            start = input("Enter: ")
+            if start == "end":
+                break
