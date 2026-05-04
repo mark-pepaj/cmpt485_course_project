@@ -7,6 +7,10 @@ import torch
 import tiktoken
 from model import GPTConfig, GPT
 import re
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+app = Flask(__name__)
+CORS(app)
 
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
@@ -18,7 +22,7 @@ temperature = 0.4 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, i
 top_k = 50 # retain only the top_k most likely tokens, clamp others to have 0 probability
 #seed = 1337
 #device = 'cpu'
-device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
+device = 'cuda' if torch.cuda.is_available() else 'cpu' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = False # use PyTorch 2.0 to compile the model to be faster
 exec(open('configurator.py').read()) # overrides from command line or config file
@@ -117,22 +121,40 @@ def remove_special_tokens(text, tags):
             text = text.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
     return text
 
-
-start = input("Hello, how may I help you today?\nEnter: ")
-# run generation
-with torch.no_grad():
-    with ctx:
-        while True:
-            start = "<SOS>\n<PROMPT>" + start + "</PROMPT>\n\n"
+def generate_recipe(user_input):
+    with torch.no_grad():
+        with ctx:
+            start = "<SOS>\n<PROMPT>" + user_input + "</PROMPT>\n\n"
             start_ids = encode(start)
-            x = (torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...])
 
-            y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k, eos_token_id=50266)
+            x = torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...]
+
+            y = model.generate(
+                x,
+                max_new_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                eos_token_id=50266
+            )
+
             text = decode(y[0].tolist())
-            text = remove_special_tokens(text, ["SOS", "PROMPT", "TITLE", "INGREDIENTS", "DIRECTIONS", "EOS"])
-            print(text)
-            print('---------------')
+            text = remove_special_tokens(
+                text,
+                ["SOS", "PROMPT", "TITLE", "INGREDIENTS", "DIRECTIONS", "EOS"]
+            )
 
-            start = input("Enter: ")
-            if start == "end":
-                break
+            return text
+        
+@app.route("/api", methods=["POST"])
+def api():
+    data = request.get_json()
+    prompt = data.get("prompt", "")
+
+    result = generate_recipe(prompt)
+
+    return jsonify({
+        "response": result
+    })
+
+if __name__ == "__main__":
+    app.run(debug=True)
