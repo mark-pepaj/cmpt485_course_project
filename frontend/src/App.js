@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import './App.css';
 
 function App() {
   // messages state (starts with opening AI message)
@@ -10,65 +11,80 @@ function App() {
   const [input, setInput] = useState("");
 
   // handle sending message
-  const handleSend = () => {
+  const handleSend = async () => {
     if (input.trim() === "") return;
 
     const userMessage = { type: "user", content: input };
 
-    // fake AI response (hardcoded)
-    const fakeResponse = {
-      type: "ai",
-      content: `Chocolate Cake
-
-      Ingredients:
-      - 2 cups flour
-      - 1 cup sugar
-      - 2 eggs
-
-      Directions:
-      1. Mix ingredients
-      2. Bake at 350°F for 30 minutes`
-    };
-
-    setMessages([...messages, userMessage, fakeResponse]);
+    // show user message immediately
+    setMessages(prev => [...prev, userMessage]);
 
     setInput("");
+
+    try {
+      const res = await fetch("http://localhost:5000/api", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: input }),
+      });
+
+      const data = await res.json();
+
+      const aiMessage = {
+        type: "ai",
+        content: data.response,
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+
+    } catch (error) {
+      setMessages(prev => [
+        ...prev,
+        { type: "ai", content: "Error: could not reach AI." }
+      ]);
+    }
   };
 
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   return (
-    <div style={{ padding: "20px", maxWidth: "600px", margin: "auto" }}>
-      <h1>Recipe AI</h1>
+    <div className="app">
+    <h1 className="title">ChefGPT</h1>
 
-      {/* Chat area */}
-      <div style={{ border: "1px solid #ccc", padding: "10px", minHeight: "300px" }}>
-        {messages.map((msg, index) => (
-          <div key={index} style={{ marginBottom: "10px" }}>
-            <b>{msg.type === "user" ? "You" : "ChefGPT"}:</b>
-            <div style={{ whiteSpace: "pre-line" }}>
-              {msg.content}
-            </div>
+    {/* Chat area */}
+    <div className="chat-container">
+      {messages.map((msg, index) => (
+        <div key={index} className="message">
+          <div className="label">
+            {msg.type === "user" ? "You" : "ChefGPT"}:
           </div>
-        ))}
-      </div>
 
-      {/* Input area */}
-      <div style={{ marginTop: "10px" }}>
-        <input
-          style={{ width: "70%", padding: "8px" }}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleSend();
-            }
-          }}
-          placeholder="Enter a recipe..."
-        />
-        <button onClick={handleSend} style={{ padding: "8px", marginLeft: "5px" }}>
-          Send
-        </button>
-      </div>
+          <div className={`text ${msg.type}`}>
+            {msg.content}
+          </div>
+        </div>
+      ))}
+
+      <div ref={bottomRef} />
     </div>
+
+    {/* Input area */}
+    <div className="input-container">
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleSend()}
+        placeholder="What are we cooking?"
+      />
+      <button onClick={handleSend}>Cook</button>
+    </div>
+  </div>
   );
 }
 
